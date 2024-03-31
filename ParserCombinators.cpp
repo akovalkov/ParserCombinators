@@ -3,13 +3,16 @@
 #include <print>
 #include <iostream>
 #include <string>
+#include <vector>
+#include <ranges>
+#include <functional>
 #include "ParserCombinators.h"
 
 struct ParserState
 {
 	std::string_view targetString;
 	size_t index = 0;
-	std::string_view result;
+	std::vector<std::string_view> results;
 };
 
 template<>
@@ -23,7 +26,11 @@ struct std::formatter<ParserState>
 	// Define format() by calling the base class implementation with the wrapped value
 	auto format(const ParserState& t, std::format_context& fc) const
 	{
-		return std::format_to(fc.out(), "{{\n\ttargetString: \"{}\",\n\tindex: {},\n\tresult: \"{}\"\n}}", t.targetString, t.index, t.result);
+		auto str_results = t.results | std::views::transform([](auto word) { return std::format("\"{}\"", word); }) |
+			 std::views::join_with(',') | std::ranges::to<std::string>();
+//		std::ranges::copy(t.results | std::views::transform([](auto word) { return std::format("\"{}\"", word); }) |
+//							std::views::join_with(','), std::back_inserter(fc.out()));
+		return std::format_to(fc.out(), "{{\n\ttargetString: \"{}\",\n\tindex: {},\n\tresult: {{ {} }}\n}}", t.targetString, t.index, str_results);
 	}
 };
 
@@ -37,16 +44,31 @@ auto make_str(const std::string_view& prefix) {
 	auto str = [&prefix](const ParserState& state) {
 		const auto [targetString, index, _] = state;
 		if (targetString.substr(index).starts_with(prefix)) {
-			ParserState nextState{ state };
+			ParserState nextState{ state.targetString };
 			nextState.index += prefix.length();
-			nextState.result = prefix;
+			nextState.results.push_back(prefix);
 			return nextState;
 		}
-		throw std::runtime_error(std::format("Tried to match \"{}\", but got \"{}\"", 
+		throw std::runtime_error(std::format("Str: Tried to match \"{}\", but got \"{}\"", 
 								prefix, targetString.substr(index, index + 10)));
 	};
 
 	return str;
+}
+
+auto make_sequenceOf(const std::vector<std::function<ParserState (const ParserState& state)>>& parsers) {
+	auto sequenceOf = [parsers = std::move(parsers)](const ParserState& state) {
+		ParserState finalState{ state.targetString };
+		std::vector<std::string_view> results;
+		auto nextState = state;
+		for (auto& parser : parsers) {
+			nextState = parser(nextState);
+			finalState.results.insert(end(finalState.results), begin(nextState.results), end(nextState.results)); // ????
+		}
+		finalState.index = nextState.index;
+		return finalState;
+	};
+	return sequenceOf;
 }
 
 // parser = ParserState in -> ParserState out
@@ -62,11 +84,14 @@ void func(const ParserState& state) {}
 
 int main()
 {
-	auto str = make_str("Hello there!");
+	auto parser = make_sequenceOf({
+		make_str("Hello there!"),
+		make_str("Goodbye there!")
+	});
 	try {
-		auto result = run(str, "Hello there!");
+		auto result = run(parser, "Hello there!Goodbye there!");
 		std::println("Result: {}", result);
-		run(str, "test");
+		run(parser, "test");
 	}
 	catch (std::runtime_error& err) {
 		std::println(std::cerr, "Error: {}", err.what());
