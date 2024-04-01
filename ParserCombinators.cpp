@@ -114,9 +114,25 @@ struct Parser
 	auto map(std::function<ParseResult(const ParseResult&)> fn) {
 		auto mapFn = [transformerFn = transformerFn, fn](const ParserState& state) {
 			const auto nextState = transformerFn(state);
+			if (nextState.isError) {
+				return nextState;
+			}
 			return updateParserResults(nextState, fn(nextState.result));
 		};
 		return Parser{ mapFn };
+	}
+
+	// parse error transformer = errMsg and index in -> string out
+	// can be lambda, function, method
+	auto mapError(std::function<std::string (const std::string&, std::size_t index)> fn) {
+		auto mapErrFn = [transformerFn = transformerFn, fn](const ParserState& state) {
+			const auto nextState = transformerFn(state);
+			if (!nextState.isError) {
+				return nextState;
+			}
+			return updateParserError(nextState, fn(nextState.error, nextState.index));
+		};
+		return Parser{ mapErrFn };
 	}
 };
 
@@ -198,13 +214,15 @@ int main()
 {
 	try {
 		std::println("str");
-		auto str_parser = make_str("Hello there!").map([](const ParseResult& result) {
+		auto str_parser = make_str("Hello there!").map([](const ParseResult& result) -> ParseResult {
 			ParseResult ret;
 			for (auto value : result.values) {
 				std::transform(value.begin(), value.end(), value.begin(), ::toupper);
 				ret.values.push_back(value);
 			}
 			return ret;
+		}).mapError([](const std::string&, std::size_t index) -> std::string {
+			return std::format("Expected a greeting at index {}", index);
 		});
 
 		auto result = str_parser.run("Hello there!");
