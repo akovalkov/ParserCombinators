@@ -41,9 +41,17 @@ struct std::formatter<ParserState>
 	}
 };
 
+struct Parser
+{
+	// parser transformer = ParserState in -> ParserState out
+	// can be lambda, function, method
+	std::function<ParserState(const ParserState& state)> transformerFn;
 
-template<typename T> concept ParserFunction = requires(T t, const ParserState & state)  {
-	{ t(state) } -> std::same_as<ParserState>;
+	auto run(const std::string_view& targetString) const
+	{
+		ParserState initialState{ targetString , 0 };
+		return transformerFn(initialState);
+	}
 };
 
 static const auto updateParserState(const ParserState& state, std::size_t index, const std::vector<std::string_view>& results) {
@@ -99,10 +107,37 @@ auto make_str(const std::string_view& prefix) {
 						prefix, slicedTarget.substr(0, 10)));
 	};
 
-	return str;
+	return Parser{ str };
 }
 
-auto make_sequenceOf(const std::vector<std::function<ParserState (const ParserState& state)>>& parsers) {
+// compile time sequence 
+template<typename ... Parsers>
+auto make_sequenceOfCompile(Parsers&& ... parsers) {
+	auto sequenceOf = [... parsers = std::forward<Parsers>(parsers)](const ParserState& state) {
+		if (state.isError) {
+			return state;
+		}
+		std::vector<std::string_view> results;
+		auto nextState = state;
+		([&]{
+			nextState = parsers.transformerFn(nextState);
+			if (!nextState.isError) {
+				results.insert(end(results), begin(nextState.results), end(nextState.results)); // ????
+			}
+			return !nextState.isError;
+		}() && ...);
+		// check result
+		if (nextState.isError) {
+			return nextState;
+		} else {
+			return updateParserResults(nextState, results);
+		}
+	};
+	return Parser{ sequenceOf };
+}
+
+// runtime sequence
+auto make_sequenceOf(const std::vector<Parser>& parsers) {
 	auto sequenceOf = [parsers](const ParserState& state) {
 		if (state.isError) {
 			return state;
@@ -110,49 +145,53 @@ auto make_sequenceOf(const std::vector<std::function<ParserState (const ParserSt
 		std::vector<std::string_view> results;
 		auto nextState = state;
 		for (auto& parser : parsers) {
-			nextState = parser(nextState);
+			nextState = parser.transformerFn(nextState);
 			if (nextState.isError) {
 				return nextState;
 			}
 			results.insert(end(results), begin(nextState.results), end(nextState.results)); // ????
 		}
 		return updateParserResults(nextState, results);
-	};
-	return sequenceOf;
+		};
+	return Parser{ sequenceOf };
 }
-
-// parser = ParserState in -> ParserState out
-template<ParserFunction Parser>
-auto run(Parser parser, const std::string_view& targetString) {
-	ParserState initalState{ targetString , 0};
-	return parser(initalState);
-}
-
 
 void func(const ParserState& state) {}
-
 
 int main()
 {
 	try {
 		std::println("str");
 		auto str_parser = make_str("Hello there!");
-		auto result = run(str_parser, "Hello there!");
+		auto result = str_parser.run("Hello there!");
 		std::println("Success Result: {}", result);
-		result = run(str_parser, "test");
+		result = str_parser.run("test");
 		std::println("Error Result: {}", result);
 
-
-		std::println("sequenceOf");
+		// compile sequenceOf
+		std::println("compile time sequenceOf");
+		auto compile_seq_parser = make_sequenceOfCompile(
+			make_str("Hello there!"),
+			make_str("Goodbye there!")
+		);
+		result = compile_seq_parser.run("Hello there!Goodbye there!");
+		std::println("Success Result: {}", result);
+		result = compile_seq_parser.run("Hello there!test");
+		std::println("Error Result: {}", result);
+		result = compile_seq_parser.run("");
+		std::println("Error Result: {}", result);
+		
+		// runtime sequenceOf
+		std::println("runtime sequenceOf");
 		auto seq_parser = make_sequenceOf({
 			make_str("Hello there!"),
 			make_str("Goodbye there!")
 		});
-		result = run(seq_parser, "Hello there!Goodbye there!");
+		result = seq_parser.run("Hello there!Goodbye there!");
 		std::println("Success Result: {}", result);
-		result = run(seq_parser, "Hello there!test");
+		result = seq_parser.run("Hello there!test");
 		std::println("Error Result: {}", result);
-		result = run(seq_parser, "");
+		result = seq_parser.run("");
 		std::println("Error Result: {}", result);
 
 
