@@ -8,14 +8,48 @@
 #include <functional>
 #include "ParserCombinators.h"
 
+
+struct ParseResult
+{
+	ParseResult() = default;
+	ParseResult(const std::string_view& value) 
+		: values{ value } {}
+
+	ParseResult& operator += (const ParseResult& result) {
+		values.insert(end(values), std::begin(result.values), std::end(result.values)); // ????
+		return *this;
+	}
+
+	std::vector<std::string_view> values;
+};
+
 struct ParserState
 {
 	std::string_view targetString;
 	std::size_t index = 0;
-	std::vector<std::string_view> results;
+	ParseResult result;
 	// error stuff
 	bool isError = false;
 	std::string error;
+};
+
+template<>
+struct std::formatter<ParseResult>
+{
+	// parse() is inherited from the base class
+	constexpr auto parse(std::format_parse_context& ctx) {
+		return ctx.begin();
+	}
+
+	// Define format() by calling the base class implementation with the wrapped value
+	auto format(const ParseResult& t, std::format_context& fc) const
+	{
+		auto str_results = t.values | std::views::transform([](auto word) { return std::format("\"{}\"", word); }) |
+			std::views::join_with(',') | std::ranges::to<std::string>();
+		//		std::ranges::copy(t.results | std::views::transform([](auto word) { return std::format("\"{}\"", word); }) |
+		//							std::views::join_with(','), std::back_inserter(fc.out()));
+		return std::format_to(fc.out(), "{}", str_results);
+	}
 };
 
 template<>
@@ -31,12 +65,9 @@ struct std::formatter<ParserState>
 	{
 		if (t.isError) {
 			return std::format_to(fc.out(), "{{\n\ttargetString: \"{}\",\n\tindex: {},\n\terror: {{ {} }}\n}}", t.targetString, t.index, t.error);
-		} else {
-			auto str_results = t.results | std::views::transform([](auto word) { return std::format("\"{}\"", word); }) |
-				std::views::join_with(',') | std::ranges::to<std::string>();
-			//		std::ranges::copy(t.results | std::views::transform([](auto word) { return std::format("\"{}\"", word); }) |
-			//							std::views::join_with(','), std::back_inserter(fc.out()));
-			return std::format_to(fc.out(), "{{\n\ttargetString: \"{}\",\n\tindex: {},\n\tresult: {{ {} }}\n}}", t.targetString, t.index, str_results);
+		}
+		else {
+			return std::format_to(fc.out(), "{{\n\ttargetString: \"{}\",\n\tindex: {},\n\tresult: {{ {} }}\n}}", t.targetString, t.index, t.result);
 		}
 	}
 };
@@ -52,33 +83,27 @@ struct Parser
 		ParserState initialState{ targetString , 0 };
 		return transformerFn(initialState);
 	}
+
+	auto map() {}
 };
 
-static const auto updateParserState(const ParserState& state, std::size_t index, const std::vector<std::string_view>& results) {
+static const auto updateParserState(const ParserState& state, std::size_t index, const ParseResult& result) {
 	return ParserState{
 		state.targetString,
 		index,
-		results
+		result
 	};
 }
 
-static const auto updateParserState(const ParserState& state, std::size_t index, const std::string_view& result) {
-	return updateParserState(state, index, std::vector<std::string_view>{ result });
-}
-
-static const auto updateParserResults(const ParserState& state, const std::string_view& result) {
+static const auto updateParserResults(const ParserState& state, const ParseResult& result) {
 	return updateParserState(state, state.index, result);
-}
-
-static const auto updateParserResults(const ParserState& state, const std::vector<std::string_view>& results) {
-	return updateParserState(state, state.index, results);
 }
 
 static const auto updateParserError(const ParserState& state, const std::string& errorMsg) {
 	return ParserState{
 		state.targetString,
 		state.index,
-		state.results,
+		state.result,
 		true,
 		errorMsg
 	};
@@ -117,12 +142,12 @@ auto make_sequenceOfCompile(Parsers&& ... parsers) {
 		if (state.isError) {
 			return state;
 		}
-		std::vector<std::string_view> results;
+		ParseResult result;
 		auto nextState = state;
 		([&]{
 			nextState = parsers.transformerFn(nextState);
 			if (!nextState.isError) {
-				results.insert(end(results), begin(nextState.results), end(nextState.results)); // ????
+				result += nextState.result;
 			}
 			return !nextState.isError;
 		}() && ...);
@@ -130,7 +155,7 @@ auto make_sequenceOfCompile(Parsers&& ... parsers) {
 		if (nextState.isError) {
 			return nextState;
 		} else {
-			return updateParserResults(nextState, results);
+			return updateParserResults(nextState, result);
 		}
 	};
 	return Parser{ sequenceOf };
@@ -142,17 +167,17 @@ auto make_sequenceOf(const std::vector<Parser>& parsers) {
 		if (state.isError) {
 			return state;
 		}
-		std::vector<std::string_view> results;
+		ParseResult result;
 		auto nextState = state;
 		for (auto& parser : parsers) {
 			nextState = parser.transformerFn(nextState);
 			if (nextState.isError) {
 				return nextState;
 			}
-			results.insert(end(results), begin(nextState.results), end(nextState.results)); // ????
+			result += nextState.result;
 		}
-		return updateParserResults(nextState, results);
-		};
+		return updateParserResults(nextState, result);
+	};
 	return Parser{ sequenceOf };
 }
 
