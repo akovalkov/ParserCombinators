@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <ranges>
+#include <algorithm>
 #include <functional>
 #include "ParserCombinators.h"
 
@@ -13,14 +14,15 @@ struct ParseResult
 {
 	ParseResult() = default;
 	ParseResult(const std::string_view& value) 
-		: values{ value } {}
+		: values{ std::string{value} } {}
 
 	ParseResult& operator += (const ParseResult& result) {
-		values.insert(end(values), std::begin(result.values), std::end(result.values)); // ????
+		values.insert(end(values), std::begin(result.values), std::end(result.values)); 
 		return *this;
 	}
 
-	std::vector<std::string_view> values;
+	//std::vector<std::string_view> values;
+	std::vector<std::string> values; // because the map function
 };
 
 struct ParserState
@@ -72,21 +74,6 @@ struct std::formatter<ParserState>
 	}
 };
 
-struct Parser
-{
-	// parser transformer = ParserState in -> ParserState out
-	// can be lambda, function, method
-	std::function<ParserState(const ParserState& state)> transformerFn;
-
-	auto run(const std::string_view& targetString) const
-	{
-		ParserState initialState{ targetString , 0 };
-		return transformerFn(initialState);
-	}
-
-	auto map() {}
-};
-
 static const auto updateParserState(const ParserState& state, std::size_t index, const ParseResult& result) {
 	return ParserState{
 		state.targetString,
@@ -108,6 +95,30 @@ static const auto updateParserError(const ParserState& state, const std::string&
 		errorMsg
 	};
 }
+
+
+struct Parser
+{
+	// parser transformer = ParserState in -> ParserState out
+	// can be lambda, function, method
+	std::function<ParserState(const ParserState& state)> transformerFn;
+
+	auto run(const std::string_view& targetString) const
+	{
+		ParserState initialState{ targetString , 0 };
+		return transformerFn(initialState);
+	}
+
+	// parse result transformer = ParseResult in -> ParseResult out
+	// can be lambda, function, method
+	auto map(std::function<ParseResult(const ParseResult&)> fn) {
+		auto mapFn = [transformerFn = transformerFn, fn](const ParserState& state) {
+			const auto nextState = transformerFn(state);
+			return updateParserResults(nextState, fn(nextState.result));
+		};
+		return Parser{ mapFn };
+	}
+};
 
 auto make_str(const std::string_view& prefix) {
 	auto str = [&prefix](const ParserState& state) {
@@ -187,7 +198,15 @@ int main()
 {
 	try {
 		std::println("str");
-		auto str_parser = make_str("Hello there!");
+		auto str_parser = make_str("Hello there!").map([](const ParseResult& result) {
+			ParseResult ret;
+			for (auto value : result.values) {
+				std::transform(value.begin(), value.end(), value.begin(), ::toupper);
+				ret.values.push_back(value);
+			}
+			return ret;
+		});
+
 		auto result = str_parser.run("Hello there!");
 		std::println("Success Result: {}", result);
 		result = str_parser.run("test");
