@@ -48,6 +48,28 @@ int main()
 		std::println("Error Result: {}", result);
 		result = seq_parser.run("");
 		std::println("Error Result: {}", result);
+		// letters 
+		std::println("letters");
+		auto letters_parser = make_letters();
+		result = letters_parser.run("Hello123");
+		std::println("Success Result: {}", result);
+		result = letters_parser.run("123456");
+		std::println("Error Result: {}", result);
+		// digits
+		std::println("digits");
+		auto digits_parser = make_digits();
+		result = digits_parser.run("123456");
+		std::println("Success Result: {}", result);
+		result = digits_parser.run("123Hello");
+		std::println("Error Result: {}", result);
+		// regexp
+		std::println("regexp");
+		std::regex phoneRegex("\\+\\d \\d{3} \\d{3} \\d{4}");
+		auto phone_parser = make_regexp(phoneRegex, "phone");
+		result = phone_parser.run("+7 921 123 4567");
+		std::println("Success Result: {}", result);
+		result = phone_parser.run("Hello");
+		std::println("Error Result: {}", result);
 
 	}
 	catch (std::runtime_error& err) {

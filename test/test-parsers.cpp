@@ -15,6 +15,55 @@ TEST_CASE("str parser") {
 	});
 }
 
+
+TEST_CASE("letters parser") {
+	// letters
+	auto letters_parser = make_letters();
+	// success
+	auto result = letters_parser.run("Hello");
+	CHECK(result == ParserState{
+		 "Hello", 5, { {"Hello"} }
+	});
+	// fail
+	result = letters_parser.run("123456");
+	CHECK(result == ParserState{
+		 "123456", 0, {}, true, "letters: Couldn't match letters at index 0"
+	});
+}
+
+
+TEST_CASE("digits parser") {
+	// digits
+	auto digits_parser = make_digits();
+	// success
+	auto result = digits_parser.run("123456");
+	CHECK(result == ParserState{
+		 "123456", 6, { {"123456"} }
+	});
+	// fail
+	result = digits_parser.run("Hello");
+	CHECK(result == ParserState{
+		 "Hello", 0, {}, true, "digits: Couldn't match digits at index 0"
+	});
+}
+
+
+TEST_CASE("regexp parser") {
+	// phone regexp
+	std::regex phoneRegex("\\+\\d \\d{3} \\d{3} \\d{4}");
+	auto phone_parser = make_regexp(phoneRegex, "phone");
+	// success
+	auto result = phone_parser.run("+7 921 123 4567");
+	CHECK(result == ParserState{
+		 "+7 921 123 4567", 15, { {"+7 921 123 4567"} }
+	});
+	// fail
+	result = phone_parser.run("Hello");
+	CHECK(result == ParserState{
+		 "Hello", 0, {}, true, "phone: Couldn't match phone at index 0"
+	});
+}
+
 TEST_CASE("compile time sequenceOf parser") {
 	// compile sequenceOf
 	auto compile_seq_parser = make_sequenceOfCompile(
@@ -85,4 +134,36 @@ TEST_CASE("map and mapError") {
 		 "test", 0, {}, true, "Expected a greeting at index 0"
 	});
 
+}
+
+#include <print>
+
+TEST_CASE("digits letters sequenceOf parser") {
+	// runtime sequenceOf
+	auto seq_parser = make_sequenceOf({
+		make_digits(),
+		make_letters(),
+		make_digits()
+	});
+	// success
+	auto result = seq_parser.run("1d2");
+	CHECK(result == ParserState{
+		 "1d2", 3, { {"1", "d", "2"}}
+	});
+	// fail
+	result = seq_parser.run("12345hello");
+	//std::println("{}", result);
+	CHECK(result == ParserState{
+		 "12345hello", 10, {}, true, "digits: Got unexpected end of input."
+		});
+	result = seq_parser.run("Hello there!test");
+	// fail
+	CHECK(result == ParserState{
+		 "Hello there!test", 0, {}, true, "digits: Couldn't match digits at index 0"
+	}); 
+	// empty fail
+	result = seq_parser.run("");
+	CHECK(result == ParserState{
+		 "", 0, {}, true, "digits: Got unexpected end of input."
+	});
 }

@@ -5,7 +5,7 @@
 #include <ranges>
 #include <algorithm>
 #include <functional>
-
+#include <regex>
 
 struct ParseResult
 {
@@ -118,6 +118,10 @@ struct Parser
 
 
 Parser make_str(const std::string_view& prefix);
+Parser make_regexp(const std::regex& re, const std::string_view& name = "regexp");
+Parser make_letters();
+Parser make_digits();
+
 // runtime sequence
 Parser make_sequenceOf(const std::vector<Parser>& parsers);
 

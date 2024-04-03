@@ -27,8 +27,6 @@ const ParserState updateParserError(const ParserState& state, const std::string&
 	};
 }
 
-
-
 Parser make_str(const std::string_view& prefix) {
 	auto str = [&prefix](const ParserState& state) {
 		const auto [targetString, index, _, isError, __] = state;
@@ -51,10 +49,41 @@ Parser make_str(const std::string_view& prefix) {
 						std::format("str: Tried to match \"{}\", but got \"{}\"",
 						prefix, slicedTarget.substr(0, 10)));
 	};
-
 	return Parser{ str };
 }
 
+Parser make_regexp(const std::regex& re, const std::string_view& name) {
+	auto regexp = [re, name](const ParserState& state) {
+		const auto [targetString, index, _, isError, __] = state;
+		if (isError) {
+			return state;
+		}
+		auto slicedTarget = targetString.substr(index);
+		if (slicedTarget.length() == 0) {
+			// error
+			return updateParserError(state, std::format("{}: Got unexpected end of input.", name));
+		}
+		std::cmatch match;
+		if (std::regex_search(slicedTarget.data(), match, re, std::regex_constants::match_continuous)) {
+			// success
+			return updateParserState(state, index + match[0].length(), {{match[0]}});
+		}
+		// error
+		return updateParserError(state,
+			std::format("{}: Couldn't match {} at index {}", name, name, index));
+	};
+	return Parser{ regexp };
+}
+
+Parser make_letters() {
+	std::regex letterRegex("[^\\W\\d]+");
+	return make_regexp(letterRegex, "letters");
+}
+
+Parser make_digits() {
+	std::regex digitsRegex("\\d+");
+	return make_regexp(digitsRegex, "digits");
+}
 
 // runtime sequence
 Parser make_sequenceOf(const std::vector<Parser>& parsers) {
