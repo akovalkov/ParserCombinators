@@ -125,6 +125,12 @@ Parser make_digits();
 // runtime sequence
 Parser make_sequenceOf(const std::vector<Parser>& parsers);
 
+// runtime choice
+Parser make_choice(const std::vector<Parser>& parsers);
+
+Parser make_plus(const Parser& parser);
+Parser make_star(const Parser& parser);
+
 
 // compile time sequence 
 template<typename ... Parsers>
@@ -149,7 +155,30 @@ auto make_sequenceOfCompile(Parsers&& ... parsers) {
 		else {
 			return updateParserResults(nextState, result);
 		}
-		};
+	};
 	return Parser{ sequenceOf };
+}
+
+// compile time choice 
+template<typename ... Parsers>
+auto make_choiceCompile(Parsers&& ... parsers) {
+	auto choice = [... parsers = std::forward<Parsers>(parsers)](const ParserState& state) {
+		if (state.isError) {
+			return state;
+		}
+		auto nextState = state;
+		([&] {
+			nextState = parsers.transformerFn(state);
+			return nextState.isError;
+			}() && ...);
+		// check result
+		if (!nextState.isError) {
+			return nextState;
+		} else {
+			return updateParserError(state, 
+				std::format("choice: Unable to match with any parser at index {}", state.index));
+		}
+	};
+	return Parser{ choice };
 }
 

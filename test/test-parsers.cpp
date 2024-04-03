@@ -1,3 +1,4 @@
+#include <print>
 
 
 TEST_CASE("str parser") {
@@ -64,52 +65,108 @@ TEST_CASE("regexp parser") {
 	});
 }
 
-TEST_CASE("compile time sequenceOf parser") {
-	// compile sequenceOf
-	auto compile_seq_parser = make_sequenceOfCompile(
-		make_str("Hello there!"),
-		make_str("Goodbye there!")
+TEST_CASE("compile time choice parser") {
+	// compile choice
+	auto compile_choice_parser = make_choiceCompile(
+		make_letters(),
+		make_digits()
 	);
 	// success
-	auto result = compile_seq_parser.run("Hello there!Goodbye there!");
+	auto result = compile_choice_parser.run("Hello");
+	CHECK(result == ParserState{
+		"Hello", 5, { {"Hello"} }
+	});
+	result = compile_choice_parser.run("123456");
+	CHECK(result == ParserState{
+		 "123456", 6,{ {"123456"} }
+	});
+	// fail
+	result = compile_choice_parser.run("---");
 	ParserState test{
-		 "Hello there!Goodbye there!", 26, { {"Hello there!", "Goodbye there!"} }
+		 "---", 0, {}, true, "choice: Unable to match with any parser at index 0"
 	};
 	CHECK(result == test);
-	// fail
-	result = compile_seq_parser.run("Hello there!test");
-	CHECK(result == ParserState{
-		 "Hello there!test", 12, {}, true, "str: Tried to match \"Goodbye there!\", but got \"test\""
-	});
-	// empty fail
-	result = compile_seq_parser.run("");
-	CHECK(result == ParserState{
-		 "", 0, {}, true, "str: Tried to match \"Hello there!\", but got unexpected end of input."
-	});
 }
 
-TEST_CASE("run time sequenceOf parser") {
-	// runtime sequenceOf
-	auto seq_parser = make_sequenceOf({
-		make_str("Hello there!"),
-		make_str("Goodbye there!")
+TEST_CASE("run time choice parser") {
+	// runtime choice
+	auto runtime_choice_parser = make_choice({
+		make_letters(),
+		make_digits()
 	});
 	// success
-	auto result = seq_parser.run("Hello there!Goodbye there!");
+	auto result = runtime_choice_parser.run("Hello");
 	CHECK(result == ParserState{
-		 "Hello there!Goodbye there!", 26, { {"Hello there!", "Goodbye there!"} }
+		"Hello", 5, { {"Hello"} }
+	});
+	result = runtime_choice_parser.run("123456");
+	CHECK(result == ParserState{
+		 "123456", 6,{ {"123456"} }
 	});
 	// fail
-	result = seq_parser.run("Hello there!test");
-	CHECK(result == ParserState{
-		 "Hello there!test", 12, {}, true, "str: Tried to match \"Goodbye there!\", but got \"test\""
-	});
-	// empty fail
-	result = seq_parser.run("");
-	CHECK(result == ParserState{
-		 "", 0, {}, true, "str: Tried to match \"Hello there!\", but got unexpected end of input."
-	});
+	result = runtime_choice_parser.run("---");
+	ParserState test{
+		 "---", 0, {}, true, "choice: Unable to match with any parser at index 0"
+	};
+	CHECK(result == test);
 }
+
+
+TEST_CASE("star parser") {
+	// star parser with choice
+	auto star_parser = make_star(make_choice({
+		make_letters(),
+		make_digits()
+	}));
+	// success
+	auto result = star_parser.run("Hello12345there");
+	CHECK(result == ParserState{
+		"Hello12345there", 15, { {"Hello", "12345", "there"}}
+	});
+	result = star_parser.run("");
+	CHECK(result == ParserState{
+		 "", 0, {}
+	});
+	result = star_parser.run("hello12345---");
+	CHECK(result == ParserState{
+		 "hello12345---", 10, { {"hello", "12345"}}
+	});
+	// fail
+	result = star_parser.run("---");
+	ParserState test{
+		 "---", 0, {}
+	};
+	CHECK(result == test);
+}
+
+
+TEST_CASE("plus parser") {
+	// plus parser with choice
+	auto plus_parser = make_plus(make_choice({
+		make_letters(),
+		make_digits()
+	}));
+	// success
+	auto result = plus_parser.run("Hello12345there");
+	CHECK(result == ParserState{
+		"Hello12345there", 15, { {"Hello", "12345", "there"}}
+	});
+	result = plus_parser.run("hello12345---");
+	CHECK(result == ParserState{
+		 "hello12345---", 10, { {"hello", "12345"}}
+	});
+	// fail
+	result = plus_parser.run("");
+	CHECK(result == ParserState{
+		 "", 0, {}, true, "plus: Unable to match any input using parser at index 0"
+	});
+	result = plus_parser.run("---");
+	ParserState test{
+		 "---", 0, {}, true, "plus: Unable to match any input using parser at index 0"
+	};
+	CHECK(result == test);
+}
+
 
 TEST_CASE("map and mapError") {
 	auto str_parser = make_str("Hello there!").map([](const ParseResult& result) -> ParseResult {
@@ -135,8 +192,6 @@ TEST_CASE("map and mapError") {
 	});
 
 }
-
-#include <print>
 
 TEST_CASE("digits letters sequenceOf parser") {
 	// runtime sequenceOf

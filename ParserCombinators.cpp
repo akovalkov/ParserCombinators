@@ -105,3 +105,70 @@ Parser make_sequenceOf(const std::vector<Parser>& parsers) {
 	return Parser{ sequenceOf };
 }
 
+// runtime choice
+Parser make_choice(const std::vector<Parser>& parsers) {
+	auto choice = [parsers](const ParserState& state) {
+		if (state.isError) {
+			return state;
+		}
+		for (auto& parser : parsers) {
+			const auto nextState = parser.transformerFn(state);
+			if (!nextState.isError) {
+				return nextState;
+			}
+		}
+		return updateParserError(state,
+			std::format("choice: Unable to match with any parser at index {}", state.index));
+	};
+	return Parser{ choice };
+}
+
+Parser make_plus(const Parser& parser)
+{
+	auto plus = [parser](const ParserState& state) {
+		if (state.isError) {
+			return state;
+		}
+		ParseResult result;
+		auto nextState = state;
+		bool done = false;
+		while (!done) {
+			const auto testState = parser.transformerFn(nextState);
+			if (!testState.isError) {
+				nextState = testState;
+				result += testState.result;
+				continue;
+			}
+			done = true;
+		}
+		if (result.values.empty()) {
+			return updateParserError(state,
+				std::format("plus: Unable to match any input using parser at index {}", state.index));
+		}
+		return updateParserResults(nextState, result);
+	};
+	return Parser{ plus };
+}
+
+Parser make_star(const Parser& parser)
+{
+	auto star = [parser](const ParserState& state) {
+		if (state.isError) {
+			return state;
+		}
+		ParseResult result;
+		auto nextState = state;
+		bool done = false;
+		while (!done) {
+			const auto testState = parser.transformerFn(nextState);
+			if (!testState.isError) {
+				nextState = testState;
+				result += testState.result;
+				continue;
+			}
+			done = true;
+		}
+		return updateParserResults(nextState, result);
+	};
+	return Parser{ star };
+}
