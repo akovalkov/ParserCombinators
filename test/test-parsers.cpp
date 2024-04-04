@@ -168,11 +168,31 @@ TEST_CASE("plus parser") {
 }
 
 
+TEST_CASE("between brackets parser") {
+	// plus parser with choice
+	auto parser = make_betweenBrackets(make_letters());
+	// success
+	auto result = parser.run("(hello)");
+	auto test = ParserState{
+		"(hello)", 7, { {"hello"} }
+	};
+	CHECK(result == test);
+	// fail
+	result = parser.run("(hello");
+	test = ParserState{
+		 "(hello", 6, {}, true, "str: Tried to match \")\", but got unexpected end of input."
+	};
+	CHECK(result == test);
+}
+
+
 TEST_CASE("map and mapError") {
 	auto str_parser = make_str("Hello there!").map([](const ParseResult& result) -> ParseResult {
 		ParseResult ret;
 		for (auto value : result.values) {
-			std::transform(value.begin(), value.end(), value.begin(), ::toupper);
+			std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { 
+				return  static_cast<unsigned char>(std::toupper(c)); 
+			});
 			ret.values.push_back(value);
 		}
 		return ret;

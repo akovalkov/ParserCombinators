@@ -27,8 +27,8 @@ const ParserState updateParserError(const ParserState& state, const std::string&
 	};
 }
 
-Parser make_str(const std::string_view& prefix) {
-	auto str = [&prefix](const ParserState& state) {
+Parser make_str(const std::string& prefix) {
+	auto str = [prefix](const ParserState& state) {
 		const auto [targetString, index, _, isError, __] = state;
 		if (isError) {
 			return state;
@@ -42,7 +42,7 @@ Parser make_str(const std::string_view& prefix) {
 
 		if (slicedTarget.starts_with(prefix)) {
 			// success
-			return updateParserState(state, index + prefix.length(), { {std::string(prefix)} });
+			return updateParserState(state, index + prefix.length(), { {prefix} });
 		}
 		// error
 		return updateParserError(state,
@@ -171,4 +171,41 @@ Parser make_star(const Parser& parser)
 		return updateParserResults(nextState, result);
 	};
 	return Parser{ star };
+}
+
+
+auto make_between(const Parser& leftParser, const Parser& rightParser)
+{
+	auto between = [leftParser, rightParser](const Parser& contentParser) {
+		return make_sequenceOf({
+			leftParser, contentParser, rightParser
+		});
+	};
+	return between;
+}
+
+auto make_betweenCompile(const Parser& leftParser, const Parser& rightParser)
+{
+	auto between = [leftParser, rightParser](const Parser& contentParser) {
+		return make_sequenceOfCompile(
+			leftParser, contentParser, rightParser
+		);
+	};
+	return between;
+}
+
+Parser make_betweenBracketsCompile(const Parser& contentParser)
+{
+	auto betweenBrackets = make_betweenCompile(make_str("("), make_str(")"));
+	return Parser{ betweenBrackets(contentParser) }.map([](const ParseResult& result) -> ParseResult {
+		return ParseResult{ {result.values[1]} };
+	});
+}
+
+Parser make_betweenBrackets(const Parser& contentParser)
+{
+	auto betweenBrackets = make_between(make_str("("), make_str(")"));
+	return Parser{ betweenBrackets(contentParser) }.map([](const ParseResult& result) -> ParseResult {
+		return ParseResult{ {result.values[1]} };
+	});
 }

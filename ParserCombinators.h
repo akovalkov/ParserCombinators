@@ -92,32 +92,33 @@ struct Parser
 	// parse result transformer = ParseResult in -> ParseResult out
 	// can be lambda, function, method
 	auto map(std::function<ParseResult(const ParseResult&)> fn) {
-		auto mapFn = [transformerFn = transformerFn, fn](const ParserState& state) {
+		auto mapFn = [transformerFn = this->transformerFn, fn](const ParserState& state) {
 			const auto nextState = transformerFn(state);
 			if (nextState.isError) {
 				return nextState;
 			}
 			return updateParserResults(nextState, fn(nextState.result));
-			};
+		};
 		return Parser{ mapFn };
 	}
 
 	// parse error transformer = errMsg and index in -> string out
 	// can be lambda, function, method
 	auto mapError(std::function<std::string(const std::string&, std::size_t index)> fn) {
-		auto mapErrFn = [transformerFn = transformerFn, fn](const ParserState& state) {
+		auto mapErrFn = [transformerFn = this->transformerFn, fn](const ParserState& state) {
 			const auto nextState = transformerFn(state);
 			if (!nextState.isError) {
 				return nextState;
 			}
 			return updateParserError(nextState, fn(nextState.error, nextState.index));
-			};
+		};
 		return Parser{ mapErrFn };
 	}
+
 };
 
 
-Parser make_str(const std::string_view& prefix);
+Parser make_str(const std::string& prefix);
 Parser make_regexp(const std::regex& re, const std::string_view& name = "regexp");
 Parser make_letters();
 Parser make_digits();
@@ -182,3 +183,6 @@ auto make_choiceCompile(Parsers&& ... parsers) {
 	return Parser{ choice };
 }
 
+
+Parser make_betweenBracketsCompile(const Parser& contentParser);
+Parser make_betweenBrackets(const Parser& contentParser);
