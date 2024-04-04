@@ -52,6 +52,15 @@ Parser make_str(const std::string& prefix) {
 	return Parser{ str };
 }
 
+Parser make_error(const std::string& error) {
+	auto err = [error](const ParserState& state) {
+		// always return error
+		return updateParserError(state, error);
+		};
+	return Parser{ err };
+}
+
+
 Parser make_regexp(const std::regex& re, const std::string_view& name) {
 	auto regexp = [re, name](const ParserState& state) {
 		const auto [targetString, index, _, isError, __] = state;

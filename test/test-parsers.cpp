@@ -242,3 +242,72 @@ TEST_CASE("digits letters sequenceOf parser") {
 		 "", 0, {}, true, "digits: Got unexpected end of input."
 	});
 }
+
+
+TEST_CASE("chain") {
+	auto str_parser = make_letters().map([](const ParseResult& result) -> ParseResult {
+		ParseResult ret(result);
+		ret += ParseResult{ {"string"} };
+		return ret;
+	});
+
+	auto number_parser = make_digits().map([](const ParseResult& result) -> ParseResult {
+		ParseResult ret(result);
+		ret += ParseResult{ {"number"} };
+		return ret;
+	});
+
+	auto dice_parser = make_sequenceOfCompile(
+		make_digits(),
+		make_str("d"),
+		make_digits()
+	).map([](const ParseResult& result) -> ParseResult {
+		ParseResult ret;
+		ret += result.values[0];
+		ret += result.values[2];
+		ret += ParseResult{ {"dice"} };
+		return ret;
+	});
+
+	auto err_parser = make_error("Unknown type");
+
+	auto parser = make_sequenceOfCompile(
+		make_letters(),
+		make_str(":")
+	).map([](const ParseResult& result) -> ParseResult {
+		ParseResult ret({ result.values[0] });
+		return ret;
+	}).chain([&](const ParseResult& result) -> const Parser {
+		auto type = result.values[0];
+		if (type == "string") {
+			return str_parser;
+		} else if (type == "number") {
+			return number_parser;
+		} else if (type == "dice") {
+			return dice_parser;
+		}
+		return err_parser;
+	});
+	// success
+	auto result = parser.run("string:hello");
+	auto test = ParserState{
+		"string:hello", 12, { {"hello", "string"}}
+	};
+	CHECK(result == test);
+	result = parser.run("number:42");
+	test = ParserState{
+		"number:42", 9, { {"42", "number"}}
+	};
+	CHECK(result == test);
+	result = parser.run("dice:2d6");
+	test = ParserState{
+		"dice:2d6", 8, { {"2", "6", "dice"}}
+	};
+	CHECK(result == test);
+	// fail
+	result = parser.run("test:2d6");
+	test = ParserState{
+		"test:2d6", 5, {}, true, "Unknown type"
+	};
+	CHECK(result == test);
+}

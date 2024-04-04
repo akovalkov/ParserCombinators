@@ -18,6 +18,11 @@ struct ParseResult
 		return *this;
 	}
 
+	ParseResult& operator += (const std::string& value) {
+		values.push_back(value);
+		return *this;
+	}
+
 	bool operator==(const ParseResult&) const = default;
 };
 
@@ -102,6 +107,20 @@ struct Parser
 		return Parser{ mapFn };
 	}
 
+	// parse result transformer = ParseState in -> sitch Parser by result => ParseState out
+	// can be lambda, function, method
+	auto chain(std::function<const Parser(const ParseResult&)> fn) {
+		auto chainFn = [transformerFn = this->transformerFn, fn](const ParserState& state) {
+			const auto nextState = transformerFn(state);
+			if (nextState.isError) {
+				return nextState;
+			}
+			const Parser nextParser = fn(nextState.result);
+			return nextParser.transformerFn(nextState);
+		};
+		return Parser{ chainFn };
+	}
+
 	// parse error transformer = errMsg and index in -> string out
 	// can be lambda, function, method
 	auto mapError(std::function<std::string(const std::string&, std::size_t index)> fn) {
@@ -122,6 +141,7 @@ Parser make_str(const std::string& prefix);
 Parser make_regexp(const std::regex& re, const std::string_view& name = "regexp");
 Parser make_letters();
 Parser make_digits();
+Parser make_error(const std::string& error);
 
 // runtime sequence
 Parser make_sequenceOf(const std::vector<Parser>& parsers);
