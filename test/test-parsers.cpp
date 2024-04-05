@@ -311,3 +311,56 @@ TEST_CASE("chain") {
 	};
 	CHECK(result == test);
 }
+
+
+TEST_CASE("sepBy") {
+	// separator by comma
+	auto brackets_parser = make_between(make_str("["), make_str("]"));
+	auto comma_parser = make_sepBy_star(make_str(","));
+
+	auto parser = brackets_parser(comma_parser(make_digits()));
+	// success
+	auto result = parser.run("[1,2,3,4,5,6]");
+	auto test = ParserState{
+		"[1,2,3,4,5,6]", 13, { {"1", "2", "3", "4", "5", "6"}}
+	};
+	CHECK(result == test);
+}
+
+TEST_CASE("lazy recursive sepBy") {
+	// separator by comma
+	auto brackets_parser = make_between(make_str("["), make_str("]"));
+	auto comma_parser = make_sepBy_star(make_str(","));
+
+	Parser array_parser;
+	auto value_parser = make_lazy([&array_parser]() {
+		return make_choiceCompile(
+			make_digits(),
+			array_parser
+		);
+	});
+
+	array_parser = brackets_parser(comma_parser(value_parser));
+	// success
+	auto result = array_parser.run("[1,[2,[3],4],5]");
+	auto test = ParserState{
+		"[1,[2,[3],4],5]", 15, { {"1", "2", "3", "4", "5"}}
+	};
+	CHECK(result == test);
+}
+
+TEST_CASE("recursive sepBy") {
+	// separator by comma
+	auto brackets_parser = make_between(make_str("["), make_str("]"));
+	auto comma_parser = make_sepBy_star(make_str(","));
+
+	Parser array_parser;
+	auto value_parser = make_choiceCompile(
+		make_digits(),
+		array_parser
+	);
+
+	array_parser = brackets_parser(comma_parser(value_parser));
+	// exception
+	CHECK_THROWS_AS(array_parser.run("[1,[2,[3],4],5]"), std::exception); 
+}

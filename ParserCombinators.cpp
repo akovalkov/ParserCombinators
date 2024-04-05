@@ -183,38 +183,25 @@ Parser make_star(const Parser& parser)
 }
 
 
-auto make_between(const Parser& leftParser, const Parser& rightParser)
-{
-	auto between = [leftParser, rightParser](const Parser& contentParser) {
-		return make_sequenceOf({
-			leftParser, contentParser, rightParser
-		});
-	};
-	return between;
-}
-
-auto make_betweenCompile(const Parser& leftParser, const Parser& rightParser)
-{
-	auto between = [leftParser, rightParser](const Parser& contentParser) {
-		return make_sequenceOfCompile(
-			leftParser, contentParser, rightParser
-		);
-	};
-	return between;
-}
-
 Parser make_betweenBracketsCompile(const Parser& contentParser)
 {
 	auto betweenBrackets = make_betweenCompile(make_str("("), make_str(")"));
-	return Parser{ betweenBrackets(contentParser) }.map([](const ParseResult& result) -> ParseResult {
-		return ParseResult{ {result.values[1]} };
-	});
+	return Parser{ betweenBrackets(contentParser) };
 }
 
 Parser make_betweenBrackets(const Parser& contentParser)
 {
 	auto betweenBrackets = make_between(make_str("("), make_str(")"));
-	return Parser{ betweenBrackets(contentParser) }.map([](const ParseResult& result) -> ParseResult {
-		return ParseResult{ {result.values[1]} };
-	});
+	return Parser{ betweenBrackets(contentParser) };
+}
+
+Parser make_lazy(std::function<Parser()> fn) {
+	auto lazy = [fn](const ParserState& state) {
+		if (state.isError) {
+			return state;
+		}
+		auto parser = fn();
+		return parser.transformerFn(state);
+	};
+	return Parser{ lazy };
 }

@@ -204,5 +204,104 @@ auto make_choiceCompile(Parsers&& ... parsers) {
 }
 
 
+inline auto make_between(const Parser& leftParser, const Parser& rightParser)
+{
+	auto between = [leftParser, rightParser](const Parser& contentParser) {
+		return make_sequenceOf({
+			leftParser, contentParser, rightParser
+		}).map([](const ParseResult& result) -> ParseResult {
+			ParseResult ret;
+			for (auto i = 1; i < result.values.size() - 1; ++i) {
+				ret += result.values[i];
+			}
+			return ret;
+		});
+	};
+	return between;
+}
+
+inline auto make_betweenCompile(const Parser& leftParser, const Parser& rightParser)
+{
+	auto between = [leftParser, rightParser](const Parser& contentParser) {
+		return make_sequenceOfCompile(
+			leftParser, contentParser, rightParser
+		).map([](const ParseResult& result) -> ParseResult {
+			ParseResult ret;
+			for (auto i = 1; i < result.values.size() - 1; ++i) {
+				ret += result.values[i];
+			}
+			return ret;
+		});
+	};
+	return between;
+}
+
+inline auto make_sepBy_star(const Parser& separatorParser)
+{
+	auto sepByWrapper = [separatorParser](const Parser& valueParser) {
+		auto sepBy = [separatorParser, valueParser](const ParserState& state) {
+			if (state.isError) {
+				return state;
+			}
+			ParseResult result;
+			auto nextState = state;
+			while (true) {
+				const auto valueState = valueParser.transformerFn(nextState);
+				if (valueState.isError) {
+					break;
+				}
+				result += valueState.result;
+				nextState = valueState;
+
+				const auto separatorState = separatorParser.transformerFn(nextState);
+				if (separatorState.isError) {
+					break;
+				}
+				nextState = separatorState;
+			}
+			return updateParserResults(nextState, result);
+		};
+		return Parser{ sepBy };
+	};
+	return sepByWrapper;
+}
+
+inline auto make_sepBy_plus(const Parser& separatorParser)
+{
+	auto sepByWrapper = [separatorParser](const Parser& valueParser) {
+		auto sepBy = [separatorParser, valueParser](const ParserState& state) {
+			if (state.isError) {
+				return state;
+			}
+			ParseResult result;
+			auto nextState = state;
+			while (true) {
+				const auto valueState = valueParser.transformerFn(nextState);
+				if (valueState.isError) {
+					break;
+				}
+				result += valueState.result;
+				nextState = valueState;
+
+				const auto separatorState = separatorParser.transformerFn(nextState);
+				if (separatorState.isError) {
+					break;
+				}
+				nextState = separatorState;
+			}
+			if (result.values.empty()) {
+				return updateParserError(state,
+					std::format("sepBy: Unable to capture any results at index {}", state.index));
+			}
+			return updateParserResults(nextState, result);
+		};
+		return Parser{ sepBy };
+	};
+	return sepByWrapper;
+}
+
 Parser make_betweenBracketsCompile(const Parser& contentParser);
 Parser make_betweenBrackets(const Parser& contentParser);
+
+
+Parser make_lazy(std::function<Parser()> fn);
