@@ -269,7 +269,7 @@ TEST_CASE("chain") {
 		return ret;
 	});
 
-	auto err_parser = make_error("Unknown type");
+	auto err_parser = make_fail("Unknown type");
 
 	auto parser = make_sequenceOfCompile(
 		make_letters(),
@@ -363,4 +363,20 @@ TEST_CASE("recursive sepBy") {
 	array_parser = brackets_parser(comma_parser(value_parser));
 	// exception
 	CHECK_THROWS_AS(array_parser.run("[1,[2,[3],4],5]"), std::exception); 
+}
+
+
+TEST_CASE("succeed and fail") {
+	// success
+	ParseResult value{ {"succeed"} };
+	auto succeed_parser = make_succeed(value);
+	auto result = succeed_parser.run("test");
+	CHECK(result.result == value);
+	// fail
+	auto err_parser = make_fail("Unknown type");
+	result = err_parser.run("test");
+	auto test = ParserState{
+		"test", 0, {}, true, "Unknown type"
+	};
+	CHECK(result == test);
 }

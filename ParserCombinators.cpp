@@ -12,7 +12,7 @@ const ParserState updateParserState(const ParserState& state, std::size_t index,
 	};
 }
 
-const ParserState updateParserResults(const ParserState& state, const ParseResult& result) {
+const ParserState updateParserResult(const ParserState& state, const ParseResult& result) {
 	return updateParserState(state, state.index, result);
 }
 
@@ -51,15 +51,6 @@ Parser make_str(const std::string& prefix) {
 	};
 	return Parser{ str };
 }
-
-Parser make_error(const std::string& error) {
-	auto err = [error](const ParserState& state) {
-		// always return error
-		return updateParserError(state, error);
-		};
-	return Parser{ err };
-}
-
 
 Parser make_regexp(const std::regex& re, const std::string_view& name) {
 	auto regexp = [re, name](const ParserState& state) {
@@ -109,7 +100,7 @@ Parser make_sequenceOf(const std::vector<Parser>& parsers) {
 			}
 			result += nextState.result;
 		}
-		return updateParserResults(nextState, result);
+		return updateParserResult(nextState, result);
 	};
 	return Parser{ sequenceOf };
 }
@@ -154,7 +145,7 @@ Parser make_plus(const Parser& parser)
 			return updateParserError(state,
 				std::format("plus: Unable to match any input using parser at index {}", state.index));
 		}
-		return updateParserResults(nextState, result);
+		return updateParserResult(nextState, result);
 	};
 	return Parser{ plus };
 }
@@ -177,7 +168,7 @@ Parser make_star(const Parser& parser)
 			}
 			done = true;
 		}
-		return updateParserResults(nextState, result);
+		return updateParserResult(nextState, result);
 	};
 	return Parser{ star };
 }
@@ -205,3 +196,23 @@ Parser make_lazy(std::function<Parser()> fn) {
 	};
 	return Parser{ lazy };
 }
+
+
+Parser make_fail(const std::string& error)
+{
+	auto err = [error](const ParserState& state) {
+		// always return error
+		return updateParserError(state, error);
+	};
+	return Parser{ err };
+}
+
+Parser make_succeed(const ParseResult& result)
+{
+	auto succeed = [result](const ParserState& state) {
+		// always return error
+		return updateParserResult(state, result);
+	};
+	return Parser{ succeed };
+}
+

@@ -78,7 +78,7 @@ struct std::formatter<ParserState>
 };
 
 const ParserState updateParserState(const ParserState& state, std::size_t index, const ParseResult& result);
-const ParserState updateParserResults(const ParserState& state, const ParseResult& result);
+const ParserState updateParserResult(const ParserState& state, const ParseResult& result);
 const ParserState updateParserError(const ParserState& state, const std::string& errorMsg);
 
 
@@ -102,7 +102,7 @@ struct Parser
 			if (nextState.isError) {
 				return nextState;
 			}
-			return updateParserResults(nextState, fn(nextState.result));
+			return updateParserResult(nextState, fn(nextState.result));
 		};
 		return Parser{ mapFn };
 	}
@@ -141,7 +141,8 @@ Parser make_str(const std::string& prefix);
 Parser make_regexp(const std::regex& re, const std::string_view& name = "regexp");
 Parser make_letters();
 Parser make_digits();
-Parser make_error(const std::string& error);
+Parser make_fail(const std::string& error);
+Parser make_succeed(const ParseResult& result = {});
 
 // runtime sequence
 Parser make_sequenceOf(const std::vector<Parser>& parsers);
@@ -174,7 +175,7 @@ auto make_sequenceOfCompile(Parsers&& ... parsers) {
 			return nextState;
 		}
 		else {
-			return updateParserResults(nextState, result);
+			return updateParserResult(nextState, result);
 		}
 	};
 	return Parser{ sequenceOf };
@@ -259,7 +260,7 @@ inline auto make_sepBy_star(const Parser& separatorParser)
 				}
 				nextState = separatorState;
 			}
-			return updateParserResults(nextState, result);
+			return updateParserResult(nextState, result);
 		};
 		return Parser{ sepBy };
 	};
@@ -293,7 +294,7 @@ inline auto make_sepBy_plus(const Parser& separatorParser)
 				return updateParserError(state,
 					std::format("sepBy: Unable to capture any results at index {}", state.index));
 			}
-			return updateParserResults(nextState, result);
+			return updateParserResult(nextState, result);
 		};
 		return Parser{ sepBy };
 	};
