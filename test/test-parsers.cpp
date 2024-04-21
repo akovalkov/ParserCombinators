@@ -380,3 +380,138 @@ TEST_CASE("succeed and fail") {
 	};
 	CHECK(result == test);
 }
+
+TEST_CASE("contextual simple") {
+	auto parser = make_choice({
+		make_str("VAR "),
+		make_str("GLOBAL_VAR ")
+	}).chain([&](const ParseResult& declarationType) -> const Parser {
+		return make_letters().chain([&](const ParseResult & varName) -> const Parser {
+			return make_choice({
+				make_str(" INT "),
+				make_str(" STRING "),
+				make_str(" BOOL ")
+			}).chain([&](const ParseResult& type) -> const Parser {
+				auto strType = type.values[0];
+				if (strType == " INT ") {
+					return make_digits().map([&](const ParseResult& result) -> ParseResult {
+						ParseResult newresult;
+						newresult += declarationType.values[0].substr(0, declarationType.values[0].length() - 1);
+						newresult += varName.values[0];
+						newresult += "number";
+						newresult += result.values[0];
+						return newresult;
+					});
+				} else if (strType == " STRING ") {
+					return make_between(
+						make_str("\""),
+						make_str("\"")
+					)(make_letters()).map([&](const ParseResult& result) -> ParseResult {
+						ParseResult newresult;
+						newresult += declarationType.values[0].substr(0, declarationType.values[0].length() - 1);
+						newresult += varName.values[0];
+						newresult += "string";
+						newresult += result.values[0];
+						return newresult;
+					});
+				} else if (strType == " BOOL ") {
+					return make_choice({
+						make_str("true"),
+						make_str("false")
+					}).map([&](const ParseResult& result) -> ParseResult {
+						ParseResult newresult;
+						newresult += declarationType.values[0].substr(0, declarationType.values[0].length() - 1);
+						newresult += varName.values[0];
+						newresult += "boolean";
+						newresult += result.values[0];
+						return newresult;
+					});
+				} else {
+					return make_fail("Unknown variable type");
+				}
+			});
+		});
+	});
+
+
+	auto result = parser.run("VAR theAnswer INT 42");
+	auto test = ParserState{
+		"VAR theAnswer INT 42", 20, { {"VAR", "theAnswer", "number", "42"}}
+	};
+	CHECK(result == test);
+
+	result = parser.run("GLOBAL_VAR greeting STRING \"Hello\"");
+	test = ParserState{
+		"GLOBAL_VAR greeting STRING \"Hello\"", 34, { {"GLOBAL_VAR", "greeting", "string", "Hello"}}
+	};
+	CHECK(result == test);
+	
+	result = parser.run("VAR skyIsBlue BOOL true");
+	test = ParserState{
+		"VAR skyIsBlue BOOL true", 23, { {"VAR", "skyIsBlue", "boolean", "true"}}
+	};
+	CHECK(result == test);
+}
+
+
+TEST_CASE("contextual coroutine") {
+	auto parser = make_contextual([]() -> Generator<ParseResult, Parser> {
+		const ParseResult declarationType = co_yield make_choice({
+														make_str("VAR "),
+														make_str("GLOBAL_VAR ")
+													 });
+		const ParseResult varName = co_yield make_letters();
+		const ParseResult type = co_yield make_choice({
+											make_str(" INT "),
+											make_str(" STRING "),
+											make_str(" BOOL ")
+										});
+		ParseResult data;
+		auto strType = type.values[0];
+		std::string resultType;
+		if (strType == " INT ") {
+			resultType = "number";
+			data = co_yield make_digits();
+		}else if (strType == " STRING ") {
+			resultType = "string";
+			data = co_yield make_between(
+								make_str("\""),
+								make_str("\"")
+							)(make_letters());
+		}
+		else if (strType == " BOOL ") {
+			resultType = "boolean";
+			data = co_yield make_choice({
+								make_str("true"),
+								make_str("false")
+							});
+		} else {
+			ParseResult error = co_yield make_fail("Unknown variable type");
+			co_return error;
+		}
+		ParseResult newresult;
+		newresult += declarationType.values[0].substr(0, declarationType.values[0].length() - 1);
+		newresult += varName.values[0];
+		newresult += resultType;
+		newresult += data.values[0];
+		co_return newresult;
+	});
+
+	auto result = parser.run("VAR theAnswer INT 42");
+	auto test = ParserState{
+		"VAR theAnswer INT 42", 20, { {"VAR", "theAnswer", "number", "42"}}
+	};
+	CHECK(result == test);
+
+	result = parser.run("GLOBAL_VAR greeting STRING \"Hello\"");
+	test = ParserState{
+		"GLOBAL_VAR greeting STRING \"Hello\"", 34, { {"GLOBAL_VAR", "greeting", "string", "Hello"}}
+	};
+	CHECK(result == test);
+
+	result = parser.run("VAR skyIsBlue BOOL true");
+	test = ParserState{
+		"VAR skyIsBlue BOOL true", 23, { {"VAR", "skyIsBlue", "boolean", "true"}}
+	};
+	CHECK(result == test);
+}
