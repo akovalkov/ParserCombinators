@@ -47,7 +47,7 @@ namespace Combinators {
 			return updateParserError(state,
 				std::format("str: Tried to match \"{}\", but got \"{}\"",
 					prefix, slicedTarget.substr(0, 10)));
-			};
+		};
 		return Parser{ str };
 	}
 
@@ -70,7 +70,7 @@ namespace Combinators {
 			// error
 			return updateParserError(state,
 				std::format("{}: Couldn't match {} at index {}", name, name, index));
-			};
+		};
 		return Parser{ regexp };
 	}
 
@@ -100,7 +100,7 @@ namespace Combinators {
 				result += nextState.result;
 			}
 			return updateParserResult(nextState, result);
-			};
+		};
 		return Parser{ sequenceOf };
 	}
 
@@ -118,7 +118,7 @@ namespace Combinators {
 			}
 			return updateParserError(state,
 				std::format("choice: Unable to match with any parser at index {}", state.index));
-			};
+		};
 		return Parser{ choice };
 	}
 
@@ -144,7 +144,7 @@ namespace Combinators {
 					std::format("plus: Unable to match any input using parser at index {}", state.index));
 			}
 			return updateParserResult(nextState, result);
-			};
+		};
 		return Parser{ plus };
 	}
 
@@ -166,7 +166,7 @@ namespace Combinators {
 				done = true;
 			}
 			return updateParserResult(nextState, result);
-			};
+		};
 		return Parser{ star };
 	}
 
@@ -183,7 +183,7 @@ namespace Combinators {
 			}
 			auto parser = fn();
 			return parser.transformerFn(state);
-			};
+		};
 		return Parser{ lazy };
 	}
 
@@ -192,7 +192,7 @@ namespace Combinators {
 		auto err = [error](const ParserState& state) {
 			// always return error
 			return updateParserError(state, error);
-			};
+		};
 		return Parser{ err };
 	}
 
@@ -200,7 +200,7 @@ namespace Combinators {
 		auto succeed = [result](const ParserState& state) {
 			// always return error
 			return updateParserResult(state, result);
-			};
+		};
 		return Parser{ succeed };
 	}
 
