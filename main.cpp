@@ -1,13 +1,15 @@
 #include <print>
 #include "ParserCombinators.h"
 
+using namespace Combinators;
+
 void func(const ParserState& state) {}
 
 int main()
 {
 	try {
 		std::println("str");
-		auto str_parser = make_str("Hello there!")/*.map([](const ParseResult& result) -> ParseResult {
+		auto str_parser = Parsers::str("Hello there!")/*.map([](const ParseResult& result) -> ParseResult {
 			ParseResult ret;
 			for (auto value : result.values) {
 				std::transform(value.begin(), value.end(), value.begin(), ::toupper);
@@ -25,9 +27,9 @@ int main()
 
 		// compile sequenceOf
 		std::println("compile time sequenceOf");
-		auto compile_seq_parser = make_sequenceOf(
-			make_str("Hello there!"),
-			make_str("Goodbye there!")
+		auto compile_seq_parser = Parsers::sequenceOf(
+			Parsers::str("Hello there!"),
+			Parsers::str("Goodbye there!")
 		);
 		result = compile_seq_parser.run("Hello there!Goodbye there!");
 		std::println("Success Result: {}", result);
@@ -38,9 +40,9 @@ int main()
 
 		// runtime sequenceOf
 		std::println("runtime sequenceOf");
-		auto seq_parser = make_sequenceOf({
-			make_str("Hello there!"),
-			make_str("Goodbye there!")
+		auto seq_parser = Parsers::sequenceOf({
+			Parsers::str("Hello there!"),
+			Parsers::str("Goodbye there!")
 		});
 		result = seq_parser.run("Hello there!Goodbye there!");
 		std::println("Success Result: {}", result);
@@ -50,14 +52,14 @@ int main()
 		std::println("Error Result: {}", result);
 		// letters 
 		std::println("letters");
-		auto letters_parser = make_letters();
+		auto letters_parser = Parsers::letters();
 		result = letters_parser.run("Hello123");
 		std::println("Success Result: {}", result);
 		result = letters_parser.run("123456");
 		std::println("Error Result: {}", result);
 		// digits
 		std::println("digits");
-		auto digits_parser = make_digits();
+		auto digits_parser = Parsers::digits();
 		result = digits_parser.run("123456");
 		std::println("Success Result: {}", result);
 		result = digits_parser.run("123Hello");
@@ -65,7 +67,7 @@ int main()
 		// regexp
 		std::println("regexp");
 		std::regex phoneRegex("\\+\\d \\d{3} \\d{3} \\d{4}");
-		auto phone_parser = make_regexp(phoneRegex, "phone");
+		auto phone_parser = Parsers::regexp(phoneRegex, "phone");
 		result = phone_parser.run("+7 921 123 4567");
 		std::println("Success Result: {}", result);
 		result = phone_parser.run("Hello");

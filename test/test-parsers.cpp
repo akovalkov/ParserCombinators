@@ -1,9 +1,10 @@
 #include <print>
 
+using namespace Combinators;
 
 TEST_CASE("str parser") {
 	// str
-	auto str_parser = make_str("Hello there!");
+	auto str_parser = Parsers::str("Hello there!");
 	// success
 	auto result = str_parser.run("Hello there!");
 	CHECK(result == ParserState{
@@ -19,7 +20,7 @@ TEST_CASE("str parser") {
 
 TEST_CASE("letters parser") {
 	// letters
-	auto letters_parser = make_letters();
+	auto letters_parser = Parsers::letters();
 	// success
 	auto result = letters_parser.run("Hello");
 	CHECK(result == ParserState{
@@ -35,7 +36,7 @@ TEST_CASE("letters parser") {
 
 TEST_CASE("digits parser") {
 	// digits
-	auto digits_parser = make_digits();
+	auto digits_parser = Parsers::digits();
 	// success
 	auto result = digits_parser.run("123456");
 	CHECK(result == ParserState{
@@ -52,7 +53,7 @@ TEST_CASE("digits parser") {
 TEST_CASE("regexp parser") {
 	// phone regexp
 	std::regex phoneRegex("\\+\\d \\d{3} \\d{3} \\d{4}");
-	auto phone_parser = make_regexp(phoneRegex, "phone");
+	auto phone_parser = Parsers::regexp(phoneRegex, "phone");
 	// success
 	auto result = phone_parser.run("+7 921 123 4567");
 	CHECK(result == ParserState{
@@ -67,9 +68,9 @@ TEST_CASE("regexp parser") {
 
 TEST_CASE("compile time choice parser") {
 	// compile choice
-	auto compile_choice_parser = make_choice(
-		make_letters(),
-		make_digits()
+	auto compile_choice_parser = Parsers::choice(
+		Parsers::letters(),
+		Parsers::digits()
 	);
 	// success
 	auto result = compile_choice_parser.run("Hello");
@@ -90,9 +91,9 @@ TEST_CASE("compile time choice parser") {
 
 TEST_CASE("run time choice parser") {
 	// runtime choice
-	auto runtime_choice_parser = make_choice({
-		make_letters(),
-		make_digits()
+	auto runtime_choice_parser = Parsers::choice({
+		Parsers::letters(),
+		Parsers::digits()
 	});
 	// success
 	auto result = runtime_choice_parser.run("Hello");
@@ -114,9 +115,9 @@ TEST_CASE("run time choice parser") {
 
 TEST_CASE("star parser") {
 	// star parser with choice
-	auto star_parser = make_star(make_choice({
-		make_letters(),
-		make_digits()
+	auto star_parser = Parsers::star(Parsers::choice({
+		Parsers::letters(),
+		Parsers::digits()
 	}));
 	// success
 	auto result = star_parser.run("Hello12345there");
@@ -142,9 +143,9 @@ TEST_CASE("star parser") {
 
 TEST_CASE("plus parser") {
 	// plus parser with choice
-	auto plus_parser = make_plus(make_choice({
-		make_letters(),
-		make_digits()
+	auto plus_parser = Parsers::plus(Parsers::choice({
+		Parsers::letters(),
+		Parsers::digits()
 	}));
 	// success
 	auto result = plus_parser.run("Hello12345there");
@@ -170,7 +171,7 @@ TEST_CASE("plus parser") {
 
 TEST_CASE("between brackets parser") {
 	// plus parser with choice
-	auto parser = make_betweenBrackets(make_letters());
+	auto parser = Parsers::betweenBrackets(Parsers::letters());
 	// success
 	auto result = parser.run("(hello)");
 	auto test = ParserState{
@@ -187,7 +188,7 @@ TEST_CASE("between brackets parser") {
 
 
 TEST_CASE("map and mapError") {
-	auto str_parser = make_str("Hello there!").map([](const ParseResult& result) -> ParseResult {
+	auto str_parser = Parsers::str("Hello there!").map([](const ParseResult& result) -> ParseResult {
 		ParseResult ret;
 		for (auto value : result.values) {
 			std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { 
@@ -215,10 +216,10 @@ TEST_CASE("map and mapError") {
 
 TEST_CASE("digits letters sequenceOf parser") {
 	// runtime sequenceOf
-	auto seq_parser = make_sequenceOf({
-		make_digits(),
-		make_letters(),
-		make_digits()
+	auto seq_parser = Parsers::sequenceOf({
+		Parsers::digits(),
+		Parsers::letters(),
+		Parsers::digits()
 	});
 	// success
 	auto result = seq_parser.run("1d2");
@@ -245,22 +246,22 @@ TEST_CASE("digits letters sequenceOf parser") {
 
 
 TEST_CASE("chain") {
-	auto str_parser = make_letters().map([](const ParseResult& result) -> ParseResult {
+	auto str_parser = Parsers::letters().map([](const ParseResult& result) -> ParseResult {
 		ParseResult ret(result);
 		ret += ParseResult{ {"string"} };
 		return ret;
 	});
 
-	auto number_parser = make_digits().map([](const ParseResult& result) -> ParseResult {
+	auto number_parser = Parsers::digits().map([](const ParseResult& result) -> ParseResult {
 		ParseResult ret(result);
 		ret += ParseResult{ {"number"} };
 		return ret;
 	});
 
-	auto dice_parser = make_sequenceOf(
-		make_digits(),
-		make_str("d"),
-		make_digits()
+	auto dice_parser = Parsers::sequenceOf(
+		Parsers::digits(),
+		Parsers::str("d"),
+		Parsers::digits()
 	).map([](const ParseResult& result) -> ParseResult {
 		ParseResult ret;
 		ret += result.values[0];
@@ -269,11 +270,11 @@ TEST_CASE("chain") {
 		return ret;
 	});
 
-	auto err_parser = make_fail("Unknown type");
+	auto err_parser = Parsers::fail("Unknown type");
 
-	auto parser = make_sequenceOf(
-		make_letters(),
-		make_str(":")
+	auto parser = Parsers::sequenceOf(
+		Parsers::letters(),
+		Parsers::str(":")
 	).map([](const ParseResult& result) -> ParseResult {
 		ParseResult ret({ result.values[0] });
 		return ret;
@@ -315,10 +316,11 @@ TEST_CASE("chain") {
 
 TEST_CASE("sepBy") {
 	// separator by comma
-	auto brackets_parser = make_between(make_str("["), make_str("]"));
-	auto comma_parser = make_sepBy_star(make_str(","));
+	auto brackets_parser = Parsers::between(
+		Parsers::str("["), Parsers::str("]"));
+	auto comma_parser = Parsers::sepBy_star(Parsers::str(","));
 
-	auto parser = brackets_parser(comma_parser(make_digits()));
+	auto parser = brackets_parser(comma_parser(Parsers::digits()));
 	// success
 	auto result = parser.run("[1,2,3,4,5,6]");
 	auto test = ParserState{
@@ -329,13 +331,14 @@ TEST_CASE("sepBy") {
 
 TEST_CASE("lazy recursive sepBy") {
 	// separator by comma
-	auto brackets_parser = make_between(make_str("["), make_str("]"));
-	auto comma_parser = make_sepBy_star(make_str(","));
+	auto brackets_parser = Parsers::between(
+		Parsers::str("["), Parsers::str("]"));
+	auto comma_parser = Parsers::sepBy_star(Parsers::str(","));
 
 	Parser array_parser;
-	auto value_parser = make_lazy([&array_parser]() {
-		return make_choice(
-			make_digits(),
+	auto value_parser = Parsers::lazy([&array_parser]() {
+		return Parsers::choice(
+			Parsers::digits(),
 			array_parser
 		);
 	});
@@ -351,12 +354,13 @@ TEST_CASE("lazy recursive sepBy") {
 
 TEST_CASE("recursive sepBy") {
 	// separator by comma
-	auto brackets_parser = make_between(make_str("["), make_str("]"));
-	auto comma_parser = make_sepBy_star(make_str(","));
+	auto brackets_parser = Parsers::between(
+				Parsers::str("["), Parsers::str("]"));
+	auto comma_parser = Parsers::sepBy_star(Parsers::str(","));
 
 	Parser array_parser;
-	auto value_parser = make_choice(
-		make_digits(),
+	auto value_parser = Parsers::choice(
+		Parsers::digits(),
 		array_parser
 	);
 
@@ -369,11 +373,11 @@ TEST_CASE("recursive sepBy") {
 TEST_CASE("succeed and fail") {
 	// success
 	ParseResult value{ {"succeed"} };
-	auto succeed_parser = make_succeed(value);
+	auto succeed_parser = Parsers::succeed(value);
 	auto result = succeed_parser.run("test");
 	CHECK(result.result == value);
 	// fail
-	auto err_parser = make_fail("Unknown type");
+	auto err_parser = Parsers::fail("Unknown type");
 	result = err_parser.run("test");
 	auto test = ParserState{
 		"test", 0, {}, true, "Unknown type"
@@ -382,19 +386,19 @@ TEST_CASE("succeed and fail") {
 }
 
 TEST_CASE("contextual simple") {
-	auto parser = make_choice({
-		make_str("VAR "),
-		make_str("GLOBAL_VAR ")
+	auto parser = Parsers::choice({
+		Parsers::str("VAR "),
+		Parsers::str("GLOBAL_VAR ")
 	}).chain([&](const ParseResult& declarationType) -> const Parser {
-		return make_letters().chain([&](const ParseResult & varName) -> const Parser {
-			return make_choice({
-				make_str(" INT "),
-				make_str(" STRING "),
-				make_str(" BOOL ")
+		return Parsers::letters().chain([&](const ParseResult & varName) -> const Parser {
+			return Parsers::choice({
+				Parsers::str(" INT "),
+				Parsers::str(" STRING "),
+				Parsers::str(" BOOL ")
 			}).chain([&](const ParseResult& type) -> const Parser {
 				auto strType = type.values[0];
 				if (strType == " INT ") {
-					return make_digits().map([&](const ParseResult& result) -> ParseResult {
+					return Parsers::digits().map([&](const ParseResult& result) -> ParseResult {
 						ParseResult newresult;
 						newresult += declarationType.values[0].substr(0, declarationType.values[0].length() - 1);
 						newresult += varName.values[0];
@@ -403,10 +407,10 @@ TEST_CASE("contextual simple") {
 						return newresult;
 					});
 				} else if (strType == " STRING ") {
-					return make_between(
-						make_str("\""),
-						make_str("\"")
-					)(make_letters()).map([&](const ParseResult& result) -> ParseResult {
+					return Parsers::between(
+						Parsers::str("\""),
+						Parsers::str("\"")
+					)(Parsers::letters()).map([&](const ParseResult& result) -> ParseResult {
 						ParseResult newresult;
 						newresult += declarationType.values[0].substr(0, declarationType.values[0].length() - 1);
 						newresult += varName.values[0];
@@ -415,9 +419,9 @@ TEST_CASE("contextual simple") {
 						return newresult;
 					});
 				} else if (strType == " BOOL ") {
-					return make_choice({
-						make_str("true"),
-						make_str("false")
+					return Parsers::choice({
+						Parsers::str("true"),
+						Parsers::str("false")
 					}).map([&](const ParseResult& result) -> ParseResult {
 						ParseResult newresult;
 						newresult += declarationType.values[0].substr(0, declarationType.values[0].length() - 1);
@@ -427,7 +431,7 @@ TEST_CASE("contextual simple") {
 						return newresult;
 					});
 				} else {
-					return make_fail("Unknown variable type");
+					return Parsers::fail("Unknown variable type");
 				}
 			});
 		});
@@ -455,38 +459,38 @@ TEST_CASE("contextual simple") {
 
 
 TEST_CASE("contextual coroutine") {
-	auto parser = make_contextual([]() -> Generator<ParseResult, Parser> {
-		const ParseResult declarationType = co_yield make_choice(
-														make_str("VAR "),
-														make_str("GLOBAL_VAR ")
+	auto parser = Parsers::contextual([]() -> Generator<ParseResult, Parser> {
+		const ParseResult declarationType = co_yield Parsers::choice(
+														Parsers::str("VAR "),
+														Parsers::str("GLOBAL_VAR ")
 													 );
-		const ParseResult varName = co_yield make_letters();
-		const ParseResult type = co_yield make_choice(
-											make_str(" INT "),
-											make_str(" STRING "),
-											make_str(" BOOL ")
+		const ParseResult varName = co_yield Parsers::letters();
+		const ParseResult type = co_yield Parsers::choice(
+											Parsers::str(" INT "),
+											Parsers::str(" STRING "),
+											Parsers::str(" BOOL ")
 										);
 		ParseResult data;
 		auto strType = type.values[0];
 		std::string resultType;
 		if (strType == " INT ") {
 			resultType = "number";
-			data = co_yield make_digits();
+			data = co_yield Parsers::digits();
 		}else if (strType == " STRING ") {
 			resultType = "string";
-			data = co_yield make_between(
-								make_str("\""),
-								make_str("\"")
-							)(make_letters());
+			data = co_yield Parsers::between(
+								Parsers::str("\""),
+								Parsers::str("\"")
+							)(Parsers::letters());
 		}
 		else if (strType == " BOOL ") {
 			resultType = "boolean";
-			data = co_yield make_choice(
-								make_str("true"),
-								make_str("false")
+			data = co_yield Parsers::choice(
+								Parsers::str("true"),
+								Parsers::str("false")
 							);
 		} else {
-			ParseResult error = co_yield make_fail("Unknown variable type");
+			ParseResult error = co_yield Parsers::fail("Unknown variable type");
 			co_return error;
 		}
 		ParseResult newresult;
