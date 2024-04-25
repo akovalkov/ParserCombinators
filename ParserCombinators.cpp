@@ -174,12 +174,6 @@ Parser make_star(const Parser& parser)
 }
 
 
-Parser make_betweenBracketsCompile(const Parser& contentParser)
-{
-	auto betweenBrackets = make_betweenCompile(make_str("("), make_str(")"));
-	return Parser{ betweenBrackets(contentParser) };
-}
-
 Parser make_betweenBrackets(const Parser& contentParser)
 {
 	auto betweenBrackets = make_between(make_str("("), make_str(")"));

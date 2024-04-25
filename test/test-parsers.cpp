@@ -67,7 +67,7 @@ TEST_CASE("regexp parser") {
 
 TEST_CASE("compile time choice parser") {
 	// compile choice
-	auto compile_choice_parser = make_choiceCompile(
+	auto compile_choice_parser = make_choice(
 		make_letters(),
 		make_digits()
 	);
@@ -257,7 +257,7 @@ TEST_CASE("chain") {
 		return ret;
 	});
 
-	auto dice_parser = make_sequenceOfCompile(
+	auto dice_parser = make_sequenceOf(
 		make_digits(),
 		make_str("d"),
 		make_digits()
@@ -271,7 +271,7 @@ TEST_CASE("chain") {
 
 	auto err_parser = make_fail("Unknown type");
 
-	auto parser = make_sequenceOfCompile(
+	auto parser = make_sequenceOf(
 		make_letters(),
 		make_str(":")
 	).map([](const ParseResult& result) -> ParseResult {
@@ -334,7 +334,7 @@ TEST_CASE("lazy recursive sepBy") {
 
 	Parser array_parser;
 	auto value_parser = make_lazy([&array_parser]() {
-		return make_choiceCompile(
+		return make_choice(
 			make_digits(),
 			array_parser
 		);
@@ -355,7 +355,7 @@ TEST_CASE("recursive sepBy") {
 	auto comma_parser = make_sepBy_star(make_str(","));
 
 	Parser array_parser;
-	auto value_parser = make_choiceCompile(
+	auto value_parser = make_choice(
 		make_digits(),
 		array_parser
 	);
@@ -456,16 +456,16 @@ TEST_CASE("contextual simple") {
 
 TEST_CASE("contextual coroutine") {
 	auto parser = make_contextual([]() -> Generator<ParseResult, Parser> {
-		const ParseResult declarationType = co_yield make_choice({
+		const ParseResult declarationType = co_yield make_choice(
 														make_str("VAR "),
 														make_str("GLOBAL_VAR ")
-													 });
+													 );
 		const ParseResult varName = co_yield make_letters();
-		const ParseResult type = co_yield make_choice({
+		const ParseResult type = co_yield make_choice(
 											make_str(" INT "),
 											make_str(" STRING "),
 											make_str(" BOOL ")
-										});
+										);
 		ParseResult data;
 		auto strType = type.values[0];
 		std::string resultType;
@@ -481,10 +481,10 @@ TEST_CASE("contextual coroutine") {
 		}
 		else if (strType == " BOOL ") {
 			resultType = "boolean";
-			data = co_yield make_choice({
+			data = co_yield make_choice(
 								make_str("true"),
 								make_str("false")
-							});
+							);
 		} else {
 			ParseResult error = co_yield make_fail("Unknown variable type");
 			co_return error;

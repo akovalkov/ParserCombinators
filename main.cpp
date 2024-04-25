@@ -25,7 +25,7 @@ int main()
 
 		// compile sequenceOf
 		std::println("compile time sequenceOf");
-		auto compile_seq_parser = make_sequenceOfCompile(
+		auto compile_seq_parser = make_sequenceOf(
 			make_str("Hello there!"),
 			make_str("Goodbye there!")
 		);

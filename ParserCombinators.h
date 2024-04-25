@@ -9,6 +9,7 @@
 #include <coroutine>
 #include <cassert>
 #include <memory>
+#include <utility>
 
 struct ParseResult
 {
@@ -33,10 +34,10 @@ struct ParserState
 {
 	std::string_view targetString;
 	std::size_t index = 0;
-	ParseResult result;
+	ParseResult result{};
 	// error stuff
 	bool isError = false;
-	std::string error;
+	std::string error{};
 	bool operator==(const ParserState&) const = default;
 
 };
@@ -173,15 +174,15 @@ Parser make_star(const Parser& parser);
 
 // compile time sequence 
 template<typename ... Parsers>
-auto make_sequenceOfCompile(Parsers&& ... parsers) {
+auto make_sequenceOf(Parsers&& ... parsers) {
 	auto sequenceOf = [... parsers = std::forward<Parsers>(parsers)](const ParserState& state) {
 		if (state.isError) {
 			return state;
 		}
 		ParseResult result;
 		auto nextState = state;
-		([&] {
-			nextState = parsers.transformerFn(nextState);
+		([&result, &nextState, parser = std::move(parsers)] {
+			nextState = parser.transformerFn(nextState);
 			if (!nextState.isError) {
 				result += nextState.result;
 			}
@@ -200,14 +201,14 @@ auto make_sequenceOfCompile(Parsers&& ... parsers) {
 
 // compile time choice 
 template<typename ... Parsers>
-auto make_choiceCompile(Parsers&& ... parsers) {
+auto make_choice(Parsers&& ... parsers) {
 	auto choice = [... parsers = std::forward<Parsers>(parsers)](const ParserState& state) {
 		if (state.isError) {
 			return state;
 		}
 		auto nextState = state;
-		([&] {
-			nextState = parsers.transformerFn(state);
+		([&state, &nextState, parser = std::move(parsers)] {
+			nextState = parser.transformerFn(state);
 			return nextState.isError;
 			}() && ...);
 		// check result
@@ -229,23 +230,7 @@ inline auto make_between(const Parser& leftParser, const Parser& rightParser)
 			leftParser, contentParser, rightParser
 		}).map([](const ParseResult& result) -> ParseResult {
 			ParseResult ret;
-			for (auto i = 1; i < result.values.size() - 1; ++i) {
-				ret += result.values[i];
-			}
-			return ret;
-		});
-	};
-	return between;
-}
-
-inline auto make_betweenCompile(const Parser& leftParser, const Parser& rightParser)
-{
-	auto between = [leftParser, rightParser](const Parser& contentParser) {
-		return make_sequenceOfCompile(
-			leftParser, contentParser, rightParser
-		).map([](const ParseResult& result) -> ParseResult {
-			ParseResult ret;
-			for (auto i = 1; i < result.values.size() - 1; ++i) {
+			for (auto i = 1; i < static_cast<int>(result.values.size()) - 1; ++i) {
 				ret += result.values[i];
 			}
 			return ret;
@@ -331,11 +316,7 @@ struct owning_handle {
 	owning_handle(std::nullptr_t) : handle_(nullptr) {}
 	owning_handle(std::coroutine_handle<promise_type> handle) : handle_(std::move(handle)) {}
 
-	//owning_handle(const owning_handle<promise_type>&) = delete;
-	owning_handle(const owning_handle<promise_type>&)
-	{
-		int a = 0;
-	}
+	owning_handle(const owning_handle<promise_type>&) = delete;
 	owning_handle(owning_handle<promise_type>&& other) : handle_(std::exchange(other.handle_, nullptr)) {}
 
 	owning_handle<promise_type>& operator=(const owning_handle<promise_type>&) = delete;
