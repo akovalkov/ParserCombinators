@@ -245,7 +245,7 @@ namespace Combinators {
 				else {
 					return updateParserResult(nextState, result);
 				}
-				};
+			};
 			return Parser{ sequenceOf };
 		}
 
@@ -269,13 +269,12 @@ namespace Combinators {
 					return updateParserError(state,
 						std::format("choice: Unable to match with any parser at index {}", state.index));
 				}
-				};
+			};
 			return Parser{ choice };
 		}
 
 
-		static auto between(const Parser& leftParser, const Parser& rightParser)
-		{
+		static auto between(const Parser& leftParser, const Parser& rightParser) {
 			auto between = [leftParser, rightParser](const Parser& contentParser) {
 				return Parsers::sequenceOf({
 					leftParser, contentParser, rightParser
@@ -285,13 +284,12 @@ namespace Combinators {
 							ret += result.values[i];
 						}
 						return ret;
-						});
+					});
 				};
 			return between;
 		}
 
-		static auto sepBy_star(const Parser& separatorParser)
-		{
+		static auto sepBy_star(const Parser& separatorParser) {
 			auto sepByWrapper = [separatorParser](const Parser& valueParser) {
 				auto sepBy = [separatorParser, valueParser](const ParserState& state) {
 					if (state.isError) {
@@ -314,14 +312,13 @@ namespace Combinators {
 						nextState = separatorState;
 					}
 					return updateParserResult(nextState, result);
-					};
-				return Parser{ sepBy };
 				};
+				return Parser{ sepBy };
+			};
 			return sepByWrapper;
 		}
 
-		static auto sepBy_plus(const Parser& separatorParser)
-		{
+		static auto sepBy_plus(const Parser& separatorParser) {
 			auto sepByWrapper = [separatorParser](const Parser& valueParser) {
 				auto sepBy = [separatorParser, valueParser](const ParserState& state) {
 					if (state.isError) {
@@ -348,20 +345,16 @@ namespace Combinators {
 							std::format("sepBy: Unable to capture any results at index {}", state.index));
 					}
 					return updateParserResult(nextState, result);
-					};
-				return Parser{ sepBy };
 				};
+				return Parser{ sepBy };
+			};
 			return sepByWrapper;
 		}
 
-		static Parser betweenBracketsCompile(const Parser& contentParser);
 		static Parser betweenBrackets(const Parser& contentParser);
-
-
 		static Parser lazy(std::function<Parser()> fn);
 
-		static Parser contextual(std::function<Generator<ParseResult, Parser>()> generatorFn)
-		{
+		static Parser contextual(std::function<Generator<ParseResult, Parser>()> generatorFn) {
 			auto contextual = Parsers::succeed().chain([generatorFn](const ParseResult& result) -> const Parser {
 				auto generator = std::make_shared<Generator<ParseResult, Parser>>(generatorFn()); // move created coroutine in share_ptr
 				//auto runStep = [generator = std::move(generatorFn())](this auto& self, const ParseResult& result) mutable -> Parser {  // can't be mutable and have the "this" argrument
@@ -375,9 +368,9 @@ namespace Combinators {
 						return Parsers::succeed(fresult);
 					}
 					return nextParser.chain(std::move(self));
-					};
+				};
 				return runStep(result);
-				});
+			});
 			return Parser{ contextual };
 		}
 	};
@@ -385,16 +378,14 @@ namespace Combinators {
 }
 
 template<>
-struct std::formatter<Combinators::ParseResult>
-{
+struct std::formatter<Combinators::ParseResult> {
 	// parse() is inherited from the base class
 	constexpr auto parse(std::format_parse_context& ctx) {
 		return ctx.begin();
 	}
 
 	// Define format() by calling the base class implementation with the wrapped value
-	auto format(const Combinators::ParseResult& t, std::format_context& fc) const
-	{
+	auto format(const Combinators::ParseResult& t, std::format_context& fc) const {
 		auto str_results = t.values | std::views::transform([](auto word) { return std::format("\"{}\"", word); }) |
 			std::views::join_with(',') | std::ranges::to<std::string>();
 		//		std::ranges::copy(t.results | std::views::transform([](auto word) { return std::format("\"{}\"", word); }) |
@@ -404,20 +395,17 @@ struct std::formatter<Combinators::ParseResult>
 };
 
 template<>
-struct std::formatter<Combinators::ParserState>
-{
+struct std::formatter<Combinators::ParserState> {
 	// parse() is inherited from the base class
 	constexpr auto parse(std::format_parse_context& ctx) {
 		return ctx.begin();
 	}
 
 	// Define format() by calling the base class implementation with the wrapped value
-	auto format(const Combinators::ParserState& t, std::format_context& fc) const
-	{
+	auto format(const Combinators::ParserState& t, std::format_context& fc) const {
 		if (t.isError) {
 			return std::format_to(fc.out(), "{{\n\ttargetString: \"{}\",\n\tindex: {},\n\terror: {{ {} }}\n}}", t.targetString, t.index, t.error);
-		}
-		else {
+		} else {
 			return std::format_to(fc.out(), "{{\n\ttargetString: \"{}\",\n\tindex: {},\n\tresult: {{ {} }}\n}}", t.targetString, t.index, t.result);
 		}
 	}
